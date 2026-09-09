@@ -1,0 +1,9 @@
+"Variable","Estimate","Standard_Error","t_value","p_value"
+"(Intercept)",105.271,5.683,18.524,7.44e-08
+"sleep_hours",-3.944,1.45,-2.72,0.0262
+"I(sleep_hours^2)",0.259,0.093,2.801,0.0232
+"age",0.45,0.014,32.295,9.21e-10
+"sexFemale",-3.144,0.707,-4.447,0.00215
+"bmi",0.42,0.043,9.846,9.53e-06
+"smoking_statusFormer",0.118,0.776,0.152,0.883
+"smoking_statusCurrent",1.118,0.757,1.477,0.178
