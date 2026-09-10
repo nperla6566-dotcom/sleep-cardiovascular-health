@@ -1,114 +1,104 @@
-# Sleep Duration and Cardiovascular Health
+# Sleep Duration and Systolic Blood Pressure in U.S. Adults
 
-## Overview
+An R-based, survey-weighted analysis of weekday sleep duration and systolic
+blood pressure (SBP) among U.S. adults using three consecutive cycles of the
+National Health and Nutrition Examination Survey (NHANES), 2013–2018.
 
-This project examines the relationship between weekday sleep duration and systolic blood pressure using publicly available data from the National Health and Nutrition Examination Survey (NHANES) 2017–2018 cycle.
+## Study Overview
 
-The goal was to investigate whether sleep duration is associated with systolic blood pressure and whether the relationship is better described as linear or nonlinear after accounting for demographic and cardiovascular risk factors.
+This project examines whether very short weekday sleep (<6 hours) is associated
+with higher systolic blood pressure compared with 7–<9 hours of sleep and
+whether this association is consistent across NHANES survey cycles.
 
-## Research Question
+The pooled analysis included **16,268 adults aged ≥18 years** from:
 
-Is weekday sleep duration associated with mean systolic blood pressure among U.S. adults after adjustment for age, sex, BMI, and smoking status?
+- NHANES 2013–2014
+- NHANES 2015–2016
+- NHANES 2017–2018
 
-## Data Source
+Analyses account for the complex NHANES sampling design using survey-weighted
+linear regression.
 
-Data were obtained from the 2017–2018 National Health and Nutrition Examination Survey (NHANES).
+## Main Finding
 
-Multiple NHANES datasets were merged using the participant identifier `SEQN`, including:
+Compared with adults reporting 7–<9 hours of weekday sleep, adults reporting
+<6 hours had **1.73 mmHg higher systolic blood pressure**
+(95% CI, 0.53–2.93; P = .0061) after adjustment for age, sex, BMI,
+smoking status, and survey cycle.
 
-- Sleep questionnaire data
-- Blood pressure examination data
-- Demographic data
-- Body measurement data
-- Smoking questionnaire data
+Additional adjustment for race/ethnicity attenuated the association to
+**1.00 mmHg (95% CI, −0.26–2.25; P = .115).**
 
-## Variables
+## Results Across Survey Cycles
 
-**Primary exposure**
-- Weekday sleep duration
+| NHANES Cycle | Adjusted Difference in SBP (95% CI), mmHg |
+|---|---|
+| 2013–2014 | 0.50 (−1.18 to 2.18) |
+| 2015–2016 | 1.96 (−1.52 to 5.43) |
+| 2017–2018 | 2.99 (0.29 to 5.68) |
+| **Pooled 2013–2018** | **1.73 (0.53 to 2.93)** |
 
-**Outcome**
-- Mean systolic blood pressure
-
-**Covariates**
-- Age
-- Sex
-- Body mass index (BMI)
-- Smoking status
-
-## Methods
-
-Analyses were performed in R.
-
-The workflow included:
-
-- Importing NHANES `.XPT` files
-- Cleaning and merging datasets using `SEQN`
-- Calculating mean systolic blood pressure from repeated measurements
-- Creating smoking-status categories
-- Exploratory data analysis and visualization
-- Linear regression
-- Quadratic regression
-- Survey-weighted multivariable regression
-- Adjustment for NHANES sampling weights, strata, and primary sampling units
-
-The final analytic sample included **5,142 participants** with complete data for the variables included in the survey-weighted model.
-
-## Results
-
-The initial unadjusted correlation between weekday sleep duration and mean systolic blood pressure was very small (`r = -0.022`).
-
-In the survey-weighted multivariable linear model, weekday sleep duration showed essentially no linear association with mean systolic blood pressure after adjustment for age, sex, BMI, and smoking status.
-
-When a quadratic sleep-duration term was added, evidence of a nonlinear relationship emerged.
-
-The quadratic sleep term was statistically significant:
-
-- **β = 0.259**
-- **SE = 0.093**
-- **p = 0.023**
-
-The fitted curve suggested a shallow U-shaped association, with the lowest predicted systolic blood pressure occurring at approximately **7.6 hours of weekday sleep**.
-
-Because NHANES is observational and cross-sectional, these findings should not be interpreted as evidence that sleep duration causes changes in blood pressure.
+There was no significant evidence that the association differed across
+survey cycles (**P for interaction = .132**).
 
 ## Figure
 
-![Survey-weighted association between sleep duration and systolic blood pressure](sleep_sbp_adjusted.png)
+![Association between very short weekday sleep and systolic blood pressure across survey cycles](sleep_sbp_adjusted.png)
 
-The figure shows predicted mean systolic blood pressure from the survey-weighted nonlinear model, adjusted for age, sex, BMI, and smoking status.
+Points represent adjusted differences in SBP comparing <6 hours with
+7–<9 hours of weekday sleep. Error bars represent 95% confidence intervals.
+Cycle-specific models were adjusted for age, sex, BMI, and smoking status;
+the pooled model was additionally adjusted for survey cycle.
 
-## Files
+## Methods
 
-- `analysis.R` — complete R analysis
-- `model_results.csv` — survey-weighted model coefficients and p-values
-- `sleep_sbp_adjusted.png` — final adjusted figure
-- `README.md` — project overview and findings
+Weekday/workday sleep duration was harmonized across cycles and categorized as:
 
-## Tools and Skills
+- <6 hours
+- 6–<7 hours
+- 7–<9 hours (reference)
+- ≥9 hours
 
-- R
-- tidyverse
-- ggplot2
-- haven
-- survey
-- Data cleaning
-- Dataset merging
-- Exploratory data analysis
-- Multiple linear regression
-- Nonlinear modeling
-- Complex survey analysis
-- Data visualization
+SBP was derived from repeated examination measurements using a standardized
+approach across cycles.
 
-## Limitations
+Survey-weighted linear regression incorporated NHANES sampling weights,
+strata, and primary sampling units.
 
-- NHANES data are cross-sectional, so causal conclusions cannot be made.
-- Weekday sleep duration is self-reported.
-- Residual confounding may remain despite adjustment for major demographic and cardiovascular risk factors.
-- The quadratic model provides a simplified representation of the relationship between sleep duration and blood pressure.
-- Findings are specific to the NHANES 2017–2018 cycle and analytic sample used in this project.
+The primary pooled model adjusted for age, sex, BMI, smoking status,
+and survey cycle. A secondary model additionally adjusted for race/ethnicity.
+
+A sleep category × survey cycle interaction was used to evaluate
+cross-cycle heterogeneity.
+
+## Interpretation
+
+Very short weekday sleep was associated with modestly higher SBP in the
+pooled analysis. Positive point estimates were observed across all three
+survey cycles, although the confidence intervals included zero in the
+2013–2014 and 2015–2016 cycles.
+
+The association was attenuated after additional adjustment for race/ethnicity,
+highlighting the potential role of demographic confounding.
+
+Because NHANES is cross-sectional and sleep duration is self-reported,
+these results should not be interpreted as evidence of a causal relationship.
+
+## Reproducibility
+
+The complete R workflow is available in [`analysis.R`](analysis.R).
+
+The script includes data harmonization, NHANES survey-design specification,
+cycle-specific analyses, pooled regression models, interaction testing,
+and generation of the final results.
+
+## Conference Submission
+
+This analysis was submitted for presentation at the
+**American Heart Association EPI|Lifestyle 2027 Scientific Sessions**.
 
 ## Author
 
-**Nidhi S. Perla**  
+**Nidhi Sree Perla**  
+Cell and Molecular Biology  
 University of South Florida
