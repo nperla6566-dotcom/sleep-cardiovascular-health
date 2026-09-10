@@ -6,7 +6,7 @@ This repository contains a reproducible epidemiologic analysis of the associatio
 
 The primary objective was to determine whether **very short weekday sleep (<6 hours)** was associated with higher SBP compared with **7–<9 hours of sleep**, and to examine whether the association was reproducible across independent survey cycles.
 
-The final pooled analytic sample included **16,268 adults aged ≥18 years**.
+The final pooled analytic sample included **16,273 adults aged ≥18 years**.
 
 ---
 
@@ -38,7 +38,7 @@ Three consecutive survey cycles were included:
 
 The final pooled analytic sample consisted of:
 
-**N = 16,268 adults aged ≥18 years**
+**N = 16,273 adults aged ≥18 years**
 
 NHANES uses a complex, multistage probability sampling design to collect demographic, questionnaire, physical examination, and laboratory data from the U.S. civilian, noninstitutionalized population.
 
@@ -261,7 +261,7 @@ The magnitude, uncertainty, observational design, and sensitivity to demographic
 
 Several aspects of the analysis strengthen the study design:
 
-- **Large analytic sample:** 16,268 adults
+- **Large analytic sample:** 16,273 adults
 - **Nationally representative data**
 - **Three consecutive NHANES cycles**
 - **Complex survey design incorporated into regression analyses**
