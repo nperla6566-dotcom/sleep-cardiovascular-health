@@ -1,395 +1,677 @@
-# Sleep Duration and Cardiovascular Health
-# NHANES 2017-2018
+# ============================================================
+# Sleep Duration and Systolic Blood Pressure
+# NHANES 2013-2018
 # Nidhi S. Perla
+# ============================================================
 
-# Install packages needed for this project
-install.packages(c("tidyverse", "haven"))
+# Required packages:
+# tidyverse
+# haven
+# survey
 
-# Load packages
 library(tidyverse)
 library(haven)
-# -----------------------------
-# 1. Import NHANES sleep data
-# -----------------------------
-
-sleep <- read_xpt(
-  "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/SLQ_J.XPT"
-)
-
-# Look at the dataset
-glimpse(sleep)
-# Summary of weekday sleep duration
-summary(sleep$SLD012)
-# Distribution of weekday sleep duration
-ggplot(sleep, aes(x = SLD012)) +
-  geom_histogram(binwidth = 0.5) +
-  labs(
-    title = "Distribution of Weekday Sleep Duration",
-    x = "Sleep Duration (hours)",
-    y = "Number of Participants"
-  )
-# -----------------------------
-# 2. Clean sleep data
-# -----------------------------
-
-sleep_clean <- sleep %>%
-  select(SEQN, SLD012) %>%
-  rename(sleep_hours = SLD012) %>%
-  filter(!is.na(sleep_hours))
-
-# Inspect cleaned sleep data
-glimpse(sleep_clean)
-
-# Number of participants
-nrow(sleep_clean)
-# -----------------------------
-# 3. Import NHANES blood pressure data
-# -----------------------------
-
-bp <- read_xpt(
-  "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BPX_J.XPT"
-)
-
-glimpse(bp)
-# Keep systolic blood pressure variables and calculate mean SBP
-
-bp_clean <- bp %>%
-  select(SEQN, BPXSY1, BPXSY2, BPXSY3, BPXSY4) %>%
-  mutate(
-    mean_sbp = rowMeans(
-      across(c(BPXSY1, BPXSY2, BPXSY3, BPXSY4)),
-      na.rm = TRUE
-    )
-  ) %>%
-  filter(!is.nan(mean_sbp))
-
-glimpse(bp_clean)
-# -----------------------------
-# 4. Merge sleep and blood pressure data
-# -----------------------------
-
-sleep_bp <- sleep_clean %>%
-  inner_join(bp_clean, by = "SEQN")
-
-# Inspect merged dataset
-glimpse(sleep_bp)
-
-# Number of participants with both sleep and BP data
-nrow(sleep_bp)
-# -----------------------------
-# 5. Explore sleep and systolic blood pressure
-# -----------------------------
-
-# Summary of mean systolic blood pressure
-summary(sleep_bp$mean_sbp)
-
-# Correlation between sleep duration and systolic BP
-cor(
-  sleep_bp$sleep_hours,
-  sleep_bp$mean_sbp,
-  use = "complete.obs"
-)
-ggplot(sleep_bp, aes(x = sleep_hours, y = mean_sbp)) +
-  geom_point(alpha = 0.15) +
-  geom_smooth(method = "lm") +
-  labs(
-    title = "Sleep Duration and Systolic Blood Pressure",
-    subtitle = "NHANES 2017–2018",
-    x = "Weekday Sleep Duration (hours)",
-    y = "Mean Systolic Blood Pressure (mmHg)"
-  )
-# -----------------------------
-# 6. Import demographic data
-# -----------------------------
-
-demo <- read_xpt(
-  "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/DEMO_J.XPT"
-)
-
-glimpse(demo)
-# Keep participant ID, age, and sex
-
-demo_clean <- demo %>%
-  select(SEQN, RIDAGEYR, RIAGENDR) %>%
-  rename(
-    age = RIDAGEYR,
-    sex = RIAGENDR
-  ) %>%
-  mutate(
-    sex = factor(
-      sex,
-      levels = c(1, 2),
-      labels = c("Male", "Female")
-    )
-  )
-
-glimpse(demo_clean)
-# -----------------------------
-# 7. Import body measurements
-# -----------------------------
-
-body <- read_xpt(
-  "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BMX_J.XPT"
-)
-
-glimpse(body)
-body_clean <- body %>%
-  select(SEQN, BMXBMI) %>%
-  rename(
-    bmi = BMXBMI
-  ) %>%
-  filter(!is.na(bmi))
-
-glimpse(body_clean)
-
-# -----------------------------
-# 8. Add demographics and BMI
-# -----------------------------
-
-analysis_data <- sleep_bp %>%
-  inner_join(demo_clean, by = "SEQN") %>%
-  inner_join(body_clean, by = "SEQN")
-
-glimpse(analysis_data)
-nrow(analysis_data)
-# -----------------------------
-# 9. Multiple linear regression
-# -----------------------------
-
-model_adjusted <- lm(
-  mean_sbp ~ sleep_hours + age + sex + bmi,
-  data = analysis_data
-)
-
-summary(model_adjusted)
-# -----------------------------
-# 10. Test for a nonlinear sleep-BP relationship
-# -----------------------------
-
-model_nonlinear <- lm(
-  mean_sbp ~ sleep_hours + I(sleep_hours^2) + age + sex + bmi,
-  data = analysis_data
-)
-
-summary(model_nonlinear)
-# Compare linear and nonlinear models
-anova(model_adjusted, model_nonlinear)
-ggplot(analysis_data, aes(x = sleep_hours, y = mean_sbp)) +
-  geom_point(alpha = 0.1) +
-  geom_smooth(
-    method = "lm",
-    formula = y ~ x + I(x^2)
-  ) +
-  labs(
-    title = "Sleep Duration and Systolic Blood Pressure",
-    subtitle = "Quadratic fit, NHANES 2017–2018",
-    x = "Weekday Sleep Duration (hours)",
-    y = "Mean Systolic Blood Pressure (mmHg)"
-  )
-# -----------------------------
-# 11. Import smoking data
-# -----------------------------
-
-smoking <- read_xpt(
-  "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/SMQ_J.XPT"
-)
-
-glimpse(smoking)
-# Create smoking status variable
-
-smoking_clean <- smoking %>%
-  select(SEQN, SMQ020, SMQ040) %>%
-  mutate(
-    smoking_status = case_when(
-      SMQ020 == 2 ~ "Never",
-      SMQ020 == 1 & SMQ040 %in% c(1, 2) ~ "Current",
-      SMQ020 == 1 & SMQ040 == 3 ~ "Former",
-      TRUE ~ NA_character_
-    ),
-    smoking_status = factor(
-      smoking_status,
-      levels = c("Never", "Former", "Current")
-    )
-  ) %>%
-  select(SEQN, smoking_status) %>%
-  filter(!is.na(smoking_status))
-
-table(smoking_clean$smoking_status)
-# -----------------------------
-# 12. Add smoking to analysis dataset
-# -----------------------------
-
-analysis_final <- analysis_data %>%
-  inner_join(smoking_clean, by = "SEQN")
-
-# Check final sample size
-nrow(analysis_final)
-
-# Smoking distribution in final analytic sample
-table(analysis_final$smoking_status)
-
-
 library(survey)
-# -----------------------------
-# 13. Add NHANES survey design variables
-# -----------------------------
 
-survey_vars <- demo %>%
-  select(SEQN, WTMEC2YR, SDMVSTRA, SDMVPSU)
+# ============================================================
+# 1. Helper function for standardized SBP averaging
+# ============================================================
 
-analysis_survey <- analysis_final %>%
-  inner_join(survey_vars, by = "SEQN")
+# If only one SBP reading is available, use that reading.
+# If multiple readings are available, exclude the first reading
+# and average the remaining available readings.
 
-# Check sample size
-nrow(analysis_survey)
+calculate_nhanes_bp <- function(r1, r2, r3, r4) {
 
-# Create NHANES survey design object
+  result <- rep(NA_real_, length(r1))
 
-nhanes_design <- svydesign(
+  for (i in seq_along(r1)) {
+
+    readings <- c(r1[i], r2[i], r3[i], r4[i])
+    available <- readings[!is.na(readings)]
+
+    if (length(available) == 0) {
+
+      result[i] <- NA_real_
+
+    } else if (length(available) == 1) {
+
+      result[i] <- available[1]
+
+    } else {
+
+      later_readings <- c(r2[i], r3[i], r4[i])
+      later_readings <- later_readings[!is.na(later_readings)]
+
+      if (length(later_readings) > 0) {
+        result[i] <- mean(later_readings)
+      } else {
+        result[i] <- r1[i]
+      }
+    }
+  }
+
+  result
+}
+
+
+# ============================================================
+# 2. Function to prepare one NHANES cycle
+# ============================================================
+
+prepare_cycle <- function(
+  sleep_url,
+  bp_url,
+  demo_url,
+  body_url,
+  smoking_url,
+  cycle_label,
+  sleep_variable
+) {
+
+  sleep_raw <- read_xpt(sleep_url)
+  bp_raw <- read_xpt(bp_url)
+  demo_raw <- read_xpt(demo_url)
+  body_raw <- read_xpt(body_url)
+  smoking_raw <- read_xpt(smoking_url)
+
+  # ----------------------------------------------------------
+  # Sleep
+  # ----------------------------------------------------------
+
+  sleep_clean <- sleep_raw %>%
+    transmute(
+      SEQN,
+      sleep_hours = .data[[sleep_variable]]
+    ) %>%
+    filter(!is.na(sleep_hours))
+
+  # ----------------------------------------------------------
+  # Systolic blood pressure
+  # ----------------------------------------------------------
+
+  bp_clean <- bp_raw %>%
+    transmute(
+      SEQN,
+      mean_sbp = calculate_nhanes_bp(
+        BPXSY1,
+        BPXSY2,
+        BPXSY3,
+        BPXSY4
+      )
+    ) %>%
+    filter(!is.na(mean_sbp))
+
+  # ----------------------------------------------------------
+  # Demographics and survey variables
+  # ----------------------------------------------------------
+
+  demo_clean <- demo_raw %>%
+    transmute(
+      SEQN,
+      age = RIDAGEYR,
+
+      sex = factor(
+        RIAGENDR,
+        levels = c(1, 2),
+        labels = c("Male", "Female")
+      ),
+
+      race_ethnicity = factor(
+        RIDRETH3,
+        levels = c(1, 2, 3, 4, 6, 7),
+        labels = c(
+          "Mexican American",
+          "Other Hispanic",
+          "Non-Hispanic White",
+          "Non-Hispanic Black",
+          "Non-Hispanic Asian",
+          "Other/Multiracial"
+        )
+      ),
+
+      WTMEC2YR,
+      SDMVSTRA,
+      SDMVPSU
+    )
+
+  # ----------------------------------------------------------
+  # BMI
+  # ----------------------------------------------------------
+
+  body_clean <- body_raw %>%
+    transmute(
+      SEQN,
+      bmi = BMXBMI
+    ) %>%
+    filter(!is.na(bmi))
+
+  # ----------------------------------------------------------
+  # Smoking status
+  # ----------------------------------------------------------
+
+  smoking_clean <- smoking_raw %>%
+    transmute(
+      SEQN,
+
+      smoking_status = case_when(
+        SMQ020 == 2 ~ "Never",
+        SMQ020 == 1 & SMQ040 == 3 ~ "Former",
+        SMQ020 == 1 & SMQ040 %in% c(1, 2) ~ "Current",
+        TRUE ~ NA_character_
+      ),
+
+      smoking_status = factor(
+        smoking_status,
+        levels = c("Never", "Former", "Current")
+      )
+    ) %>%
+    filter(!is.na(smoking_status))
+
+  # ----------------------------------------------------------
+  # Merge cycle data
+  # ----------------------------------------------------------
+
+  cycle_data <- sleep_clean %>%
+    inner_join(bp_clean, by = "SEQN") %>%
+    inner_join(demo_clean, by = "SEQN") %>%
+    inner_join(body_clean, by = "SEQN") %>%
+    inner_join(smoking_clean, by = "SEQN") %>%
+    filter(age >= 18) %>%
+    mutate(
+      cycle = cycle_label,
+
+      sleep_category = case_when(
+        sleep_hours < 6 ~ "<6 h",
+        sleep_hours >= 6 & sleep_hours < 7 ~ "6-<7 h",
+        sleep_hours >= 7 & sleep_hours < 9 ~ "7-<9 h",
+        sleep_hours >= 9 ~ ">=9 h",
+        TRUE ~ NA_character_
+      ),
+
+      sleep_category = factor(
+        sleep_category,
+        levels = c(
+          "7-<9 h",
+          "6-<7 h",
+          "<6 h",
+          ">=9 h"
+        )
+      )
+    ) %>%
+    filter(!is.na(sleep_category))
+
+  return(cycle_data)
+}
+
+
+# ============================================================
+# 3. Prepare NHANES 2013-2014
+# ============================================================
+
+nhanes_1314 <- prepare_cycle(
+  sleep_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2013/DataFiles/SLQ_H.XPT",
+
+  bp_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2013/DataFiles/BPX_H.XPT",
+
+  demo_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2013/DataFiles/DEMO_H.XPT",
+
+  body_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2013/DataFiles/BMX_H.XPT",
+
+  smoking_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2013/DataFiles/SMQ_H.XPT",
+
+  cycle_label = "2013-2014",
+
+  sleep_variable = "SLD010H"
+)
+
+
+# ============================================================
+# 4. Prepare NHANES 2015-2016
+# ============================================================
+
+nhanes_1516 <- prepare_cycle(
+  sleep_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2015/DataFiles/SLQ_I.XPT",
+
+  bp_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2015/DataFiles/BPX_I.XPT",
+
+  demo_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2015/DataFiles/DEMO_I.XPT",
+
+  body_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2015/DataFiles/BMX_I.XPT",
+
+  smoking_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2015/DataFiles/SMQ_I.XPT",
+
+  cycle_label = "2015-2016",
+
+  sleep_variable = "SLD012"
+)
+
+
+# ============================================================
+# 5. Prepare NHANES 2017-2018
+# ============================================================
+
+nhanes_1718 <- prepare_cycle(
+  sleep_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/SLQ_J.XPT",
+
+  bp_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BPX_J.XPT",
+
+  demo_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/DEMO_J.XPT",
+
+  body_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BMX_J.XPT",
+
+  smoking_url =
+    "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/SMQ_J.XPT",
+
+  cycle_label = "2017-2018",
+
+  sleep_variable = "SLD012"
+)
+
+
+# ============================================================
+# 6. Pool the three survey cycles
+# ============================================================
+
+pooled_data <- bind_rows(
+  nhanes_1314,
+  nhanes_1516,
+  nhanes_1718
+) %>%
+  mutate(
+    cycle = factor(
+      cycle,
+      levels = c(
+        "2013-2014",
+        "2015-2016",
+        "2017-2018"
+      )
+    ),
+
+    # Three consecutive 2-year cycles are pooled.
+    WTMEC6YR = WTMEC2YR / 3
+  )
+
+
+# ============================================================
+# 7. Inspect analytic sample
+# ============================================================
+
+cat("\nFinal pooled analytic sample:\n")
+print(nrow(pooled_data))
+
+cat("\nParticipants by survey cycle:\n")
+print(table(pooled_data$cycle))
+
+cat("\nParticipants by sleep category:\n")
+print(table(pooled_data$sleep_category))
+
+cat("\nSummary of systolic blood pressure:\n")
+print(summary(pooled_data$mean_sbp))
+
+
+# ============================================================
+# 8. Create pooled NHANES survey design
+# ============================================================
+
+pooled_design <- svydesign(
   ids = ~SDMVPSU,
   strata = ~SDMVSTRA,
-  weights = ~WTMEC2YR,
+  weights = ~WTMEC6YR,
   nest = TRUE,
-  data = analysis_survey
+  data = pooled_data
 )
 
-nhanes_design
-# -----------------------------
-# 14. Survey-weighted linear regression
-# -----------------------------
+cat("\nSurvey design degrees of freedom:\n")
+print(degf(pooled_design))
 
-weighted_model <- svyglm(
-  mean_sbp ~ sleep_hours + age + sex + bmi + smoking_status,
-  design = nhanes_design
+
+# ============================================================
+# 9. Model 1: unadjusted
+# ============================================================
+
+model_unadjusted <- svyglm(
+  mean_sbp ~ sleep_category,
+  design = pooled_design
 )
 
-summary(weighted_model)
 
-# -----------------------------
-# 15. Survey-weighted nonlinear model
-# -----------------------------
+# ============================================================
+# 10. Model 2: primary adjusted model
+# ============================================================
 
-weighted_nonlinear <- svyglm(
-  mean_sbp ~ sleep_hours + I(sleep_hours^2) +
-    age + sex + bmi + smoking_status,
-  design = nhanes_design
+model_primary <- svyglm(
+  mean_sbp ~
+    sleep_category +
+    age +
+    sex +
+    bmi +
+    smoking_status +
+    cycle,
+  design = pooled_design
 )
 
-summary(weighted_nonlinear)
-# --------------------------------
-# 16. Final survey-weighted figure
-# --------------------------------
 
-# Create sleep values from 3 to 12 hours
-prediction_data <- data.frame(
-  sleep_hours = seq(3, 12, by = 0.1),
-  age = mean(analysis_survey$age, na.rm = TRUE),
-  sex = factor("Female", levels = levels(analysis_survey$sex)),
-  bmi = mean(analysis_survey$bmi, na.rm = TRUE),
-  smoking_status = factor(
-    "Never",
-    levels = levels(analysis_survey$smoking_status)
+# ============================================================
+# 11. Model 3: additional race/ethnicity adjustment
+# ============================================================
+
+model_race <- svyglm(
+  mean_sbp ~
+    sleep_category +
+    age +
+    sex +
+    bmi +
+    smoking_status +
+    cycle +
+    race_ethnicity,
+  design = pooled_design
+)
+
+
+# ============================================================
+# 12. Extract primary <6 h vs 7-<9 h results
+# ============================================================
+
+extract_short_sleep <- function(model) {
+
+  term <- "sleep_category<6 h"
+  ci <- confint(model)
+
+  data.frame(
+    Estimate_mmHg =
+      unname(coef(model)[term]),
+
+    CI_lower =
+      unname(ci[term, 1]),
+
+    CI_upper =
+      unname(ci[term, 2]),
+
+    p_value =
+      unname(
+        summary(model)$coefficients[
+          term,
+          "Pr(>|t|)"
+        ]
+      )
   )
+}
+
+
+model_results <- bind_rows(
+
+  cbind(
+    Model = "Unadjusted",
+    extract_short_sleep(model_unadjusted)
+  ),
+
+  cbind(
+    Model = "Adjusted: age, sex, BMI, smoking, cycle",
+    extract_short_sleep(model_primary)
+  ),
+
+  cbind(
+    Model = "Adjusted + race/ethnicity",
+    extract_short_sleep(model_race)
+  )
+
+) %>%
+  mutate(
+    Estimate_mmHg = round(Estimate_mmHg, 2),
+    CI_lower = round(CI_lower, 2),
+    CI_upper = round(CI_upper, 2),
+    p_value = signif(p_value, 3)
+  )
+
+cat("\nFinal pooled model results:\n")
+print(model_results)
+
+
+# ============================================================
+# 13. Cycle-specific primary models
+# ============================================================
+
+run_cycle_model <- function(data, label) {
+
+  design_cycle <- svydesign(
+    ids = ~SDMVPSU,
+    strata = ~SDMVSTRA,
+    weights = ~WTMEC2YR,
+    nest = TRUE,
+    data = data
+  )
+
+  model_cycle <- svyglm(
+    mean_sbp ~
+      sleep_category +
+      age +
+      sex +
+      bmi +
+      smoking_status,
+    design = design_cycle
+  )
+
+  term <- "sleep_category<6 h"
+  ci <- confint(model_cycle)
+
+  data.frame(
+    Survey_Cycle = label,
+    Estimate_mmHg =
+      unname(coef(model_cycle)[term]),
+    CI_lower =
+      unname(ci[term, 1]),
+    CI_upper =
+      unname(ci[term, 2])
+  )
+}
+
+
+cycle_specific_results <- bind_rows(
+
+  run_cycle_model(
+    filter(pooled_data, cycle == "2013-2014"),
+    "2013-2014"
+  ),
+
+  run_cycle_model(
+    filter(pooled_data, cycle == "2015-2016"),
+    "2015-2016"
+  ),
+
+  run_cycle_model(
+    filter(pooled_data, cycle == "2017-2018"),
+    "2017-2018"
+  )
+
 )
 
-# Generate predicted systolic blood pressure
-pred <- predict(
-  weighted_nonlinear,
-  newdata = prediction_data,
-  se.fit = TRUE
-)
 
-prediction_data$predicted_sbp <- as.numeric(pred)
+pooled_ci <- confint(model_primary)
 
-prediction_se <- as.numeric(SE(pred))
+pooled_result <- data.frame(
+  Survey_Cycle = "Pooled 2013-2018",
 
-prediction_data$lower_ci <- prediction_data$predicted_sbp - 1.96 * prediction_se
-prediction_data$upper_ci <- prediction_data$predicted_sbp + 1.96 * prediction_se
-
-# Plot
-final_plot <- ggplot() +
-  geom_point(
-    data = analysis_survey,
-    aes(x = sleep_hours, y = mean_sbp),
-    alpha = 0.04
-  ) +
-  geom_ribbon(
-    data = prediction_data,
-    aes(
-      x = sleep_hours,
-      ymin = lower_ci,
-      ymax = upper_ci
+  Estimate_mmHg =
+    unname(
+      coef(model_primary)["sleep_category<6 h"]
     ),
-    alpha = 0.2
-  ) +
-  geom_line(
-    data = prediction_data,
-    aes(x = sleep_hours, y = predicted_sbp),
-    linewidth = 1
-  ) +
-  labs(
-    title = "Sleep Duration and Systolic Blood Pressure",
-    subtitle = "Survey-weighted adjusted model, NHANES 2017–2018",
-    x = "Weekday Sleep Duration (hours)",
-    y = "Mean Systolic Blood Pressure (mmHg)",
-    caption = "Adjusted for age, sex, BMI, and smoking status"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.caption = element_text(hjust = 0),
-    plot.margin = margin(10, 10, 20, 10)
+
+  CI_lower =
+    unname(
+      pooled_ci[
+        "sleep_category<6 h",
+        1
+      ]
+    ),
+
+  CI_upper =
+    unname(
+      pooled_ci[
+        "sleep_category<6 h",
+        2
+      ]
+    )
+)
+
+
+cycle_specific_results <- bind_rows(
+  cycle_specific_results,
+  pooled_result
+) %>%
+  mutate(
+    Estimate_mmHg = round(Estimate_mmHg, 2),
+    CI_lower = round(CI_lower, 2),
+    CI_upper = round(CI_upper, 2)
   )
 
-final_plot
-# Save final figure
-ggsave(
-  "sleep_sbp_adjusted.png",
-  plot = final_plot,
-  width = 8,
-  height = 6,
-  dpi = 300
-)
-# --------------------------------
-# 17. Final model results table
-# --------------------------------
+cat("\nCycle-specific and pooled estimates:\n")
+print(cycle_specific_results)
 
-# Extract coefficients from survey-weighted nonlinear model
-results_table <- as.data.frame(
-  summary(weighted_nonlinear)$coefficients
-)
 
-# Add variable names as a column
-results_table$Variable <- rownames(results_table)
+# ============================================================
+# 14. Sleep category x survey cycle interaction
+# ============================================================
 
-# Reorder columns
-results_table <- results_table[, c(
-  "Variable",
-  "Estimate",
-  "Std. Error",
-  "t value",
-  "Pr(>|t|)"
-)]
-
-# Rename columns
-colnames(results_table) <- c(
-  "Variable",
-  "Estimate",
-  "Standard_Error",
-  "t_value",
-  "p_value"
+interaction_model <- svyglm(
+  mean_sbp ~
+    sleep_category * cycle +
+    age +
+    sex +
+    bmi +
+    smoking_status,
+  design = pooled_design
 )
 
-# Round numeric values
-results_table$Estimate <- round(results_table$Estimate, 3)
-results_table$Standard_Error <- round(results_table$Standard_Error, 3)
-results_table$t_value <- round(results_table$t_value, 3)
-results_table$p_value <- signif(results_table$p_value, 3)
+interaction_test <- regTermTest(
+  interaction_model,
+  ~sleep_category:cycle
+)
 
-# View table
-results_table
-# Save final model results
+cat("\nSleep category x survey cycle interaction:\n")
+print(interaction_test)
+
+
+# ============================================================
+# 15. Final forest plot
+# ============================================================
+
+forest_data <- cycle_specific_results %>%
+  mutate(
+    Survey_Cycle = factor(
+      Survey_Cycle,
+      levels = rev(c(
+        "2013-2014",
+        "2015-2016",
+        "2017-2018",
+        "Pooled 2013-2018"
+      ))
+    )
+  )
+
+
+forest_plot <- ggplot(
+  forest_data,
+  aes(
+    x = Estimate_mmHg,
+    y = Survey_Cycle
+  )
+) +
+
+  geom_vline(
+    xintercept = 0,
+    linetype = "dashed"
+  ) +
+
+  geom_errorbarh(
+    aes(
+      xmin = CI_lower,
+      xmax = CI_upper
+    ),
+    height = 0.12
+  ) +
+
+  geom_point(
+    size = 3
+  ) +
+
+  labs(
+    title =
+      "Very Short Weekday Sleep and Systolic Blood Pressure Across Survey Cycles",
+
+    subtitle =
+      "<6 hours compared with 7–<9 hours of weekday sleep",
+
+    x =
+      "Adjusted Difference in Systolic Blood Pressure (mmHg)",
+
+    y = NULL,
+
+    caption =
+      "Cycle-specific models adjusted for age, sex, BMI, and smoking status; pooled model additionally adjusted for survey cycle."
+  ) +
+
+  theme_classic(base_size = 12)
+
+
+forest_plot
+
+
+# ============================================================
+# 16. Save outputs
+# ============================================================
+
 write.csv(
-  results_table,
+  model_results,
   "model_results.csv",
   row.names = FALSE
 )
+
+write.csv(
+  cycle_specific_results,
+  "cycle_specific_results.csv",
+  row.names = FALSE
+)
+
+ggsave(
+  "sleep_sbp_adjusted.png",
+  plot = forest_plot,
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+
+
+# ============================================================
+# 17. Key final results
+# ============================================================
+
+cat("\n============================================\n")
+cat("FINAL STUDY SUMMARY\n")
+cat("============================================\n")
+
+cat("\nAnalytic sample N:\n")
+print(nrow(pooled_data))
+
+cat("\nPrimary pooled models:\n")
+print(model_results)
+
+cat("\nCycle-specific results:\n")
+print(cycle_specific_results)
+
+cat("\nCycle interaction:\n")
+print(interaction_test)
